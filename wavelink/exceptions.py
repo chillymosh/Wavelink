@@ -1,6 +1,7 @@
+"""
 MIT License
 
-Copyright (c) 2019-Current PythonistaGuild, EvieePy
+Copyright (c) 2019-Present PythonistaGuild
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +20,50 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+__all__ = (
+    'WavelinkException',
+    'AuthorizationFailed',
+    'InvalidNode',
+    'InvalidLavalinkVersion',
+    'InvalidLavalinkResponse',
+    'NoTracksError',
+    'QueueEmpty'
+)
+
+
+class WavelinkException(Exception):
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args)
+
+
+class AuthorizationFailed(WavelinkException):
+    pass
+
+
+class InvalidNode(WavelinkException):
+    pass
+
+
+class InvalidLavalinkVersion(WavelinkException):
+    pass
+
+
+class InvalidLavalinkResponse(WavelinkException):
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args)
+        self.status: int | None = kwargs.get('status')
+
+
+class NoTracksError(WavelinkException):
+    pass
+
+
+class QueueEmpty(WavelinkException):
+    pass
