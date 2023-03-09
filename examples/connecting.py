@@ -1,6 +1,7 @@
+"""
 MIT License
 
-Copyright (c) 2019-Current PythonistaGuild, EvieePy
+Copyright (c) 2019-Present PythonistaGuild
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +20,24 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+"""
+import discord
+import wavelink
+from discord.ext import commands
+
+
+class Bot(commands.Bot):
+
+    def __init__(self) -> None:
+        intents = discord.Intents.default()
+        super().__init__(intents=intents, command_prefix='?')
+
+    async def on_ready(self) -> None:
+        print(f'Logged in {self.user} | {self.user.id}')
+
+    async def setup_hook(self) -> None:
+        # Wavelink 2.0 has made connecting Nodes easier... Simply create each Node
+        # and pass it to NodePool.connect with the client/bot.
+        node: wavelink.Node = wavelink.Node(uri='http://localhost:2333', password='youshallnotpass')
+        await wavelink.NodePool.connect(client=self, nodes=[node])
+

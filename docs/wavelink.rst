@@ -8,6 +8,7 @@ WaveLink Events are events dispatched when certain events happen in Lavalink and
 All events must be coroutines.
 
 Events are dispatched via discord.py and as such can be used with listener syntax.
+All Track Events receive the :class:`payloads.TrackEventPayload` payload.
 
 **For example:**
 
@@ -16,7 +17,7 @@ An event listener in a cog...
 .. code-block:: python3
 
     @commands.Cog.listener()
-    async def on_wavelink_node_ready(node: Node):
+    async def on_wavelink_node_ready(node: Node) -> None:
         print(f"Node {node.id} is ready!")
 
 
@@ -24,38 +25,39 @@ An event listener in a cog...
 
     Called when the Node you are connecting to has initialised and successfully connected to Lavalink.
 
-.. function:: on_wavelink_websocket_closed(player: Player, reason, code)
+.. function:: on_wavelink_track_event(payload: TrackEventPayload)
 
-    Called when the Node websocket has been closed by Lavalink.
+    Called when any Track Event occurs.
 
-.. function:: on_wavelink_track_start(player: Player, track: Track)
+.. function:: on_wavelink_track_start(payload: TrackEventPayload)
 
     Called when a track starts playing.
 
-.. function:: on_wavelink_track_end(player: player, track: Track, reason)
+.. function:: on_wavelink_track_end(payload: TrackEventPayload)
 
     Called when the current track has finished playing.
 
-.. function:: on_wavelink_track_exception(player: Player, track: Track, error)
 
-    Called when a TrackException occurs in Lavalink.
+Payloads
+---------
+.. attributetable:: TrackEventPayload
 
-.. function:: on_wavelink_track_stuck(player: Player, track: Track, threshold)
-
-    Called when a TrackStuck occurs in Lavalink.
+.. autoclass:: TrackEventPayload
+    :members:
 
 
 Abstract Base Classes
 ---------------------
+.. attributetable:: wavelink.tracks.Playable
 
-.. autoclass:: wavelink.abc.Playable
+.. autoclass:: wavelink.tracks.Playable
     :members:
 
-.. autoclass:: wavelink.abc.Searchable
+.. attributetable:: wavelink.tracks.Playlist
+
+.. autoclass:: wavelink.tracks.Playlist
     :members:
 
-.. autoclass:: wavelink.abc.Playlist
-    :members:
 
 NodePool
 --------
@@ -75,20 +77,12 @@ Node
 Tracks
 ------
 
-Track
-~~~~~
+GenericTrack
+~~~~~~~~~~~~
 
-.. attributetable:: Track
+.. attributetable:: GenericTrack
 
-.. autoclass:: Track
-    :members:
-
-SearchableTrack
-~~~~~~~~~~~~~~~
-
-.. attributetable:: SearchableTrack
-
-.. autoclass:: SearchableTrack
+.. autoclass:: GenericTrack
     :members:
 
 YouTubeTrack
@@ -123,20 +117,6 @@ YouTubePlaylist
 .. autoclass:: YouTubePlaylist
     :members:
 
-PartialTrack
-~~~~~~~~~~~~
-
-.. attributetable:: PartialTrack
-
-.. autoclass:: PartialTrack
-
-LocalTrack
-~~~~~~~~~~
-
-.. attributetable:: LocalTrack
-
-.. autoclass:: LocalTrack
-    :members:
 
 Player
 ------
@@ -146,85 +126,28 @@ Player
 .. autoclass:: Player
     :members:
 
+
 Queues
 ------
+
+.. attributetable:: BaseQueue
+
+.. autoclass:: BaseQueue
+    :members:
 
 .. attributetable:: Queue
 
 .. autoclass:: Queue
     :members:
 
-.. attributetable:: WaitQueue
-
-.. autoclass:: WaitQueue
-    :members:
-
-Filters
--------
-
-.. attributeable:: Filter
-
-.. autoclass:: Filter
-    :members:
-
-.. attributeable:: Equalizer
-
-.. autoclass:: Equalizer
-    :members:
-
-.. attributeable:: Karaoke
-
-.. autoclass:: Karaoke
-    :members:
-
-.. attributeable:: Timescale
-
-.. autoclass:: Timescale
-    :members:
-
-.. attributeable:: Tremolo
-
-.. autoclass:: Tremolo
-    :members:
-
-.. attributeable:: Vibrato
-
-.. autoclass:: Vibrato
-    :members:
-
-.. attributeable:: Rotation
-
-.. autoclass:: Rotation
-    :members:
-
-.. attributeable:: Distortion
-
-.. autoclass:: Distortion
-    :members:
-
-.. attributeable:: ChannelMix
-
-.. autoclass:: ChannelMix
-    :members:
-
-.. attributeable:: LowPass
-
-.. autoclass:: LowPass
-    :members:
-
 
 Exceptions
 ----------
 
-.. py:exception:: WavelinkError
-.. py:exception:: AuthorizationFailure
-.. py:exception:: LavalinkException
-.. py:exception:: LoadTrackError
-.. py:exception:: BuildTrackError
-.. py:exception:: NodeOccupied
-.. py:exception:: InvalidIDProvided
-.. py:exception:: ZeroConnectedNodes
-.. py:exception:: NoMatchingNode
-.. py:exception:: QueueException
-.. py:exception:: QueueFull
+.. py:exception:: WavelinkException
+.. py:exception:: AuthorizationFailed
+.. py:exception:: InvalidNode
+.. py:exception:: InvalidLavalinkVersion
+.. py:exception:: InvalidLavalinkResponse
+.. py:exception:: NoTracksError
 .. py:exception:: QueueEmpty
