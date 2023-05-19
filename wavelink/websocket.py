@@ -195,6 +195,11 @@ class Websocket:
                     if data['code'] == 4014:
                         continue
 
+                elif data.get("type") and data['type'] not in {'TrackEndEvent', 'TrackStartEvent'}:
+                    logger.debug(f'Received event from Lavalink with payload {data}')
+                    self.dispatch("raw_plugin_event", data)
+                    continue
+
                 track = await self.node.build_track(cls=wavelink.GenericTrack, encoded=data['encodedTrack'])
                 payload: TrackEventPayload = TrackEventPayload(
                     data=data,

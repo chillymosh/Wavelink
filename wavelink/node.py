@@ -37,6 +37,7 @@ import urllib.parse
 
 from .enums import LoadType, NodeStatus
 from .exceptions import *
+from .plugin import Plugin
 from .websocket import Websocket
 
 if TYPE_CHECKING:
@@ -46,6 +47,7 @@ if TYPE_CHECKING:
     from .ext import spotify as spotify_
 
     PlayableT = TypeVar('PlayableT', bound=Playable)
+    PlaylistT = TypeVar('PlaylistT', bound=Playlist)
     
 
 __all__ = ('Node', 'NodePool')
@@ -134,7 +136,7 @@ class Node:
         self._status: NodeStatus = NodeStatus.DISCONNECTED
         self._major_version: int | None = None
 
-        self._spotify: spotify_.SpotifyClient | None = None
+        self._spotify: spotify_.SpotifyClient = MISSING
 
     def __repr__(self) -> str:
         return f'Node: id="{self._id}", uri="{self.uri}", status={self.status}'
@@ -223,8 +225,8 @@ class Node:
                     path: str,
                     guild_id: int | str | None = None,
                     query: str | None = None,
-                    data: Request | None = None,
-                    ) -> dict[str, Any] | None:
+                    data: dict[str, Any] | list[Any] | None = None,
+                    ) -> Any:
 
         uri: str = f'{self._host}/' \
                    f'v{self._major_version}/' \
@@ -286,7 +288,7 @@ class Node:
 
         return [cls(track_data) for track_data in data["tracks"]]
 
-    async def get_playlist(self, cls: Playlist, query: str):
+    async def get_playlist(self, cls: type[PlaylistT], query: str) -> PlaylistT | None:
         """|coro|
 
         Search for and return a :class:`tracks.Playlist` given an identifier.
@@ -343,6 +345,48 @@ class Node:
 
         return cls(data=data)
 
+    async def get_plugins(self) -> list[Plugin]:
+        """|coro|
+
+        Return a list of plugins installed from the node.
+
+        Returns
+        -------
+        list[:class:`Plugin`]:
+            List of plugins from the node.
+        """
+        data = await self._send(method='GET', path='info')
+
+        return [Plugin(plugin) for plugin in data["plugins"]]
+    
+    async def plugin_payloads(self,
+                              *,
+                              method: str, 
+                              endpoint: str | None = None, 
+                              session_id: str | None = None, 
+                              guild_id: int | str | None = None, 
+                              data: dict[str, Any] | list[Any] | None = None
+                            ) -> dict[Any, Any] | None:
+
+        uri: str = f'{self._host}/' \
+            f'v{self._major_version}' \
+            f'{f"/sessions/{session_id}" if session_id else f"/sessions/{self._session_id}"}' \
+            f'{f"/players/{guild_id}" if guild_id else ""}' \
+            f'{f"/{endpoint}" if endpoint else ""}'
+
+        async with self._session.request(method=method, url=uri, json=data or {}) as resp:
+
+            if resp.status >= 300:
+                raise InvalidLavalinkResponse(f'An error occurred when attempting to reach: "{uri}".\nYou may need to PUT data first',
+                                               status=resp.status)
+            
+            if resp.status == 204:
+                return
+
+            try:
+                return await resp.json()
+            except aiohttp.ContentTypeError:
+                pass
 
 # noinspection PyShadowingBuiltins
 class NodePool:
@@ -392,7 +436,7 @@ class NodePool:
 
         for node in nodes:
 
-            if spotify:
+            if spotify is not None:
                 node._spotify = spotify
 
             if node.id in cls.__nodes:
@@ -503,9 +547,9 @@ class NodePool:
                            query: str,
                            /,
                            *,
-                           cls: Playlist,
+                           cls: type[PlaylistT],
                            node: Node | None = None
-                           ) -> Playlist:
+                           ) -> PlaylistT | None:
         """|coro|
 
         Helper method to retrieve a playlist from the NodePool without fetching a :class:`Node`.
@@ -520,7 +564,7 @@ class NodePool:
         ----------
         query: str
             The query to search for and return a playlist.
-        cls: type[PlayableT]
+        cls: type[:class:`Playlist:]
             The type of Playlist that should be returned.
         node: Optional[:class:`Node`]
             The node to use for retrieving tracks. If not passed, the best :class:`Node` will be used.
@@ -528,10 +572,28 @@ class NodePool:
 
         Returns
         -------
-        Playlist
+        :class:`Playlist`
             A Playlist with its tracks.
         """
         if not node:
             node = cls_.get_connected_node()
 
         return await node.get_playlist(cls=cls, query=query)
+
+    @classmethod
+    async def get_plugins(cls, /, *, node: Node | None = None) -> list[Plugin]:
+        """|coro|
+
+        Helper method to retrieve a list of plugins from the NodePool without fetching a :class:`Node`.
+
+        Returns
+        -------
+        list[:class:`Plugin`]:
+            List of plugins.
+        """
+        if not node:
+            node = cls.get_connected_node()
+            
+        data = await node._send(method='GET', path='info')
+
+        return [Plugin(plugin) for plugin in data["plugins"]]
