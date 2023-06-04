@@ -339,8 +339,8 @@ class Node:
         encoded: str
             The Tracks unique encoded string.
         """
-        encoded = urllib.parse.quote(encoded)
-        data = await self._send(method='GET', path='decodetrack', query=f'encodedTrack={encoded}')
+        encoded_query = urllib.parse.quote(encoded)
+        data = await self._send(method='GET', path='decodetrack', query=f'encodedTrack={encoded_query}')
 
         return cls(data=data)
 
