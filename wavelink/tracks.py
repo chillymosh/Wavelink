@@ -71,6 +71,22 @@ class Playlist(metaclass=abc.ABCMeta):
 class Playable(metaclass=abc.ABCMeta):
     """Base ABC Track used in all the Wavelink Track types.
 
+
+    .. container:: operations
+
+        .. describe:: str(track)
+
+            Returns a string representing the tracks name.
+
+        .. describe:: repr(track)
+
+            Returns an official string representation of this track.
+
+        .. describe:: track == other_track
+
+            Check whether a track is equal to another. A track is equal when they have the same Base64 Encoding.
+
+
     Attributes
     ----------
     data: dict[str, Any]
@@ -138,7 +154,6 @@ class Playable(metaclass=abc.ABCMeta):
                      query: str,
                      /,
                      *,
-                     return_first: Literal[False] = ...,
                      node: Node | None = ...
                      ) -> list[Self]:
         ...
@@ -149,29 +164,6 @@ class Playable(metaclass=abc.ABCMeta):
                      query: str,
                      /,
                      *,
-                     return_first: Literal[True] = ...,
-                     node: Node | None = ...
-                     ) -> Self:
-        ...
-
-    @overload
-    @classmethod
-    async def search(cls,
-                     query: str,
-                     /,
-                     *,
-                     return_first: bool = ...,
-                     node: Node | None = ...
-                     ) -> Self | list[Self]:
-        ...
-
-    @overload
-    @classmethod
-    async def search(cls,
-                     query: str,
-                     /,
-                     *,
-                     return_first: bool = ...,
                      node: Node | None = ...
                      ) -> YouTubePlaylist:
         ...
@@ -181,17 +173,14 @@ class Playable(metaclass=abc.ABCMeta):
                      query: str,
                      /,
                      *,
-                     return_first: bool = False,
                      node: Node | None = None
-                     ) -> Self | list[Self]:
+                     ) -> list[Self]:
         """Search and retrieve tracks for the given query.
 
         Parameters
         ----------
         query: str
             The query to search for.
-        return_first: Optional[bool]
-            Whether to return the first track from the search results. Defaults to False.
         node: Optional[:class:`wavelink.Node`]
             The node to use when searching for tracks. If no :class:`wavelink.Node` is passed,
             one will be fetched via the :class:`wavelink.NodePool`.
@@ -204,16 +193,10 @@ class Playable(metaclass=abc.ABCMeta):
 
             playlist = await NodePool.get_playlist(query, cls=YouTubePlaylist, node=node)
             return playlist
+        elif check.host:
+            tracks = await NodePool.get_tracks(query, cls=cls, node=node)
         else:
             tracks = await NodePool.get_tracks(f'{cls.PREFIX}{query}', cls=cls, node=node)
-        
-        try:
-            track = tracks[0]
-        except IndexError:
-            raise NoTracksError(f'Your search query "{query}" returned no tracks.')
-
-        if return_first:
-            return track
 
         return tracks
 
@@ -247,6 +230,11 @@ class YouTubeTrack(Playable):
 
     PREFIX: str = 'ytsearch:'
 
+    def __init__(self, data: TrackPayload) -> None:
+        super().__init__(data)
+
+        self._thumb: str = f"https://img.youtube.com/vi/{self.identifier}/maxresdefault.jpg"
+
     @property
     def thumbnail(self) -> str:
         """The URL to the thumbnail of this video.
@@ -261,12 +249,14 @@ class YouTubeTrack(Playable):
         str
             The URL to the video thumbnail.
         """
-        return f"https://img.youtube.com/vi/{self.identifier}/maxresdefault.jpg"
+        return self._thumb
 
     thumb = thumbnail
 
     async def fetch_thumbnail(self, *, node: Node | None = None) -> str:
         """Fetch the max resolution thumbnail with a fallback if it does not exist.
+
+        This sets and overrides the default ``thumbnail`` and ``thumb`` properties.
 
         .. note::
 
@@ -287,6 +277,7 @@ class YouTubeTrack(Playable):
             if resp.status == 404:
                 url = f'https://img.youtube.com/vi/{self.identifier}/hqdefault.jpg'
 
+        self._thumb = url
         return url
 
 
@@ -304,6 +295,14 @@ class SoundCloudTrack(Playable):
 
 class YouTubePlaylist(Playable, Playlist):
     """Represents a Lavalink YouTube playlist object.
+
+
+    .. container:: operations
+
+        .. describe:: str(playlist)
+
+            Returns a string representing the playlists name.
+
 
     Attributes
     ----------
@@ -328,6 +327,8 @@ class YouTubePlaylist(Playable, Playlist):
         for track_data in data["tracks"]:
             track = YouTubeTrack(track_data)
             self.tracks.append(track)
+
+        self.source = TrackSource.YouTube
 
     def __str__(self) -> str:
         return self.name

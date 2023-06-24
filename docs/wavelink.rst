@@ -3,8 +3,13 @@
 
 API Reference
 -------------
-The wavelink API Reference. This section outlines the API and all it's components within wavelink.
+The wavelink API Reference.
 
+This section outlines the API and all it's components within wavelink.
+
+Wavelink is a robust and powerful Lavalink wrapper for Discord.py. Featuring,
+a fully asynchronous API that's intuitive and easy to use with built in Spotify Support, Node Pool Balancing,
+advanced Queues, autoplay feature and looping features built in.
 
 Event Reference
 ---------------
@@ -245,6 +250,19 @@ Filters
 
 Exceptions
 ----------
+
+.. exception_hierarchy::
+
+    - :exc:`~WavelinkException`
+        - :exc:`~AuthorizationFailed`
+        - :exc:`~InvalidNode`
+        - :exc:`~InvalidLavalinkVersion`
+        - :exc:`~InvalidLavalinkResponse`
+        - :exc:`~NoTracksError`
+        - :exc:`~QueueEmpty`
+        - :exc:`~InvalidChannelStateError`
+            - :exc:`~InvalidChannelPermissions`
+
 
 .. py:exception:: WavelinkException
 

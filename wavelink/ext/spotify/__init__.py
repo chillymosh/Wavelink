@@ -48,7 +48,7 @@ __all__ = ('SpotifySearchType',
 
 
 GRANTURL = 'https://accounts.spotify.com/api/token?grant_type=client_credentials'
-URLREGEX = re.compile(r'(https?://open.)?(spotify)(.com/|:)'
+URLREGEX = re.compile(r'(https?://open.)?(spotify)(.com/|:)(.*[/:])?'
                       r'(?P<type>album|playlist|track|artist)([/:])'
                       r'(?P<id>[a-zA-Z0-9]+)(\?si=[a-zA-Z0-9]+)?(&dl_branch=[0-9]+)?')
 BASEURL = 'https://api.spotify.com/v1/{entity}s/{identifier}'
@@ -182,6 +182,22 @@ class SpotifyRequestError(Exception):
 class SpotifyTrack:
     """A track retrieved via Spotify.
 
+
+    .. container:: operations
+
+        .. describe:: str(track)
+
+            Returns a string representing this SpotifyTrack's name and artists.
+
+        .. describe:: repr(track)
+
+            Returns an official string representation of this SpotifyTrack.
+
+        .. describe:: track == other_track
+
+            Check whether a track is equal to another. Tracks are equal if they both have the same Spotify ID.
+
+
     Attributes
     ----------
     raw: dict[str, Any]
@@ -203,7 +219,7 @@ class SpotifyTrack:
     id: str
         The spotify ID for this track.
     isrc: str | None
-        The International Standard Recording Code associated with this track if given.
+        The International Standard Recording Code associated with this track.
     length: int
         The track length in milliseconds.
     duration: int
@@ -242,11 +258,18 @@ class SpotifyTrack:
         self.id: str = data['id']
         self.length: int = data['duration_ms']
         self.duration: int = self.length
+        self.isrc: str | None = data.get("external_ids", {}).get('irsc')
 
-        self.isrc: str | None = data["external_ids"].get("isrc")
+    def __str__(self) -> str:
+        return f'{self.name} - {self.artists[0]}'
+
+    def __repr__(self) -> str:
+        return f'SpotifyTrack(id={self.id}, isrc={self.isrc}, name={self.name}, duration={self.duration})'
 
     def __eq__(self, other) -> bool:
-        return self.id == other.id
+        if isinstance(other, SpotifyTrack):
+            return self.id == other.id
+        raise NotImplemented
 
     @classmethod
     async def search(
@@ -255,7 +278,6 @@ class SpotifyTrack:
             *,
             type: SpotifySearchType = SpotifySearchType.track,
             node: Node | None = None,
-            return_first: bool = False,
     ) -> Union[Optional[ST], List[ST]]:
         """|coro|
 
@@ -269,12 +291,10 @@ class SpotifyTrack:
             An optional enum value to use when searching with Spotify. Defaults to track.
         node: Optional[:class:`wavelink.Node`]
             An optional Node to use to make the search with.
-        return_first: Optional[bool]
-            An optional bool which when set to True will return only the first track found. Defaults to False.
 
         Returns
         -------
-        Union[Optional[:class:`SpotifyTrack`], List[:class:`SpotifyTrack`]]
+        List[:class:`SpotifyTrack`]
 
         Examples
         --------
@@ -301,10 +321,6 @@ class SpotifyTrack:
         if node is None:
             node: Node = NodePool.get_connected_node()
 
-        if type == SpotifySearchType.track:
-            tracks = await node._spotify._search(query=query, type=type)
-
-            return tracks[0] if return_first else tracks
         return await node._spotify._search(query=query, type=type)
 
     @classmethod
@@ -363,7 +379,7 @@ class SpotifyTrack:
         results = await cls.search(argument)
 
         if not results:
-            raise commands.BadArgument("Could not find any songs matching that query.")
+            raise commands.BadArgument(f"Could not find any songs matching query: {argument}")
 
         return results[0]
 
@@ -383,10 +399,13 @@ class SpotifyTrack:
         cls
             The class to convert this Spotify Track to.
         """
-        try:
-            tracks: list[cls] = await cls.search(f'"{self.isrc}"')
-        except wavelink.NoTracksError:
+
+        if not self.isrc:
             tracks: list[cls] = await cls.search(f'{self.name} - {self.artists[0]}')
+        else:
+            tracks: list[cls] = await cls.search(f'"{self.isrc}"')
+            if not tracks:
+                tracks: list[cls] = await cls.search(f'{self.name} - {self.artists[0]}')
 
         if not player.autoplay or not populate:
             return tracks[0]
@@ -396,6 +415,9 @@ class SpotifyTrack:
 
         if not sc:
             raise RuntimeError(f"There is no spotify client associated with <{node:!r}>")
+
+        if sc.is_token_expired():
+            await sc._get_bearer_token()
 
         if len(player._track_seeds) == 5:
             player._track_seeds.pop(0)
@@ -436,7 +458,7 @@ class SpotifyClient:
 
         self.session = aiohttp.ClientSession()
 
-        self._bearer_token: str = None  # type: ignore
+        self._bearer_token: str | None = None
         self._expiry: int = 0
 
     @property
@@ -458,13 +480,16 @@ class SpotifyClient:
             self._bearer_token = data['access_token']
             self._expiry = time.time() + (int(data['expires_in']) - 10)
 
+    def is_token_expired(self) -> bool:
+        return time.time() >= self._expiry
+
     async def _search(self,
                       query: str,
                       type: SpotifySearchType = SpotifySearchType.track,
                       iterator: bool = False,
-                      ) -> SpotifyTrack | list[SpotifyTrack]:
+                      ) -> list[SpotifyTrack]:
 
-        if not self._bearer_token or time.time() >= self._expiry:
+        if self.is_token_expired():
             await self._get_bearer_token()
 
         regex_result = URLREGEX.match(query)
@@ -483,7 +508,7 @@ class SpotifyClient:
             data = await resp.json()
 
         if data['type'] == 'track':
-            return SpotifyTrack(data)
+            return [SpotifyTrack(data)]
 
         elif data['type'] == 'album':
             album_data: dict[str, Any]= {
@@ -511,6 +536,7 @@ class SpotifyClient:
 
             return tracks
 
+
         elif data['type'] == 'playlist':
             if iterator:
                 if not data['tracks']['next']:
@@ -529,5 +555,4 @@ class SpotifyClient:
 
                         url = data['next']
             else:
-                tracks = data['tracks']['items']
-                return [SpotifyTrack(t) for t in tracks]
+                return [SpotifyTrack(t['track']) for t in data['tracks']['items']]
