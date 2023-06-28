@@ -184,18 +184,27 @@ class Player(discord.VoiceProtocol):
         self._destroyed: bool = False
 
     async def _auto_play_event(self, payload: TrackEventPayload) -> None:
+        logger.debug(f'Player {self.guild.id} entered autoplay event.')
+
         if not self.autoplay:
+            logger.debug(f'Player {self.guild.id} autoplay is set to False. Exiting autoplay event.')
             return
 
         if payload.reason == 'REPLACED':
+            logger.debug(f'Player {self.guild.id} autoplay reason is REPLACED. Exiting autoplay event.')
             return
 
         if self.queue.loop:
+            logger.debug(f'Player {self.guild.id} autoplay default queue.loop is set to True.')
+
             try:
                 track = self.queue.get()
             except QueueEmpty:
+                logger.debug(f'Player {self.guild.id} autoplay default queue.loop is set to True '
+                             f'but no track was available. Exiting autoplay event.')
                 return
 
+            logger.debug(f'Player {self.guild.id} autoplay default queue.loop is set to True. Looping track "{track}"')
             await self.play(track)
             return
 
@@ -203,6 +212,7 @@ class Player(discord.VoiceProtocol):
             populate = len(self.auto_queue) < self._auto_threshold
             await self.play(self.queue.get(), populate=populate)
 
+            logger.debug(f'Player {self.guild.id} autoplay found track in default queue, populate={populate}.')
             return
 
         if self.queue.loop_all:
@@ -210,12 +220,16 @@ class Player(discord.VoiceProtocol):
             return
 
         if not self.auto_queue:
+            logger.debug(f'Player {self.guild.id} has no auto queue. Exiting autoplay event.')
             return
 
         await self.queue.put_wait(await self.auto_queue.get_wait())
         populate = self.auto_queue.is_empty
 
-        await self.play(await self.queue.get_wait(), populate=populate)
+        track = await self.queue.get_wait()
+        await self.play(track, populate=populate)
+
+        logger.debug(f'Player {self.guild.id} playing track "{track}" from autoplay with populate={populate}.')
 
     @property
     def autoplay(self) -> bool:
