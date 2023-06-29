@@ -265,7 +265,7 @@ class SpotifyTrack:
 
         decoded: SpotifyDecodePayload = decode_url(query)
 
-        if decoded.type is SpotifySearchType.unusable:
+        if not decoded or decoded.type is SpotifySearchType.unusable:
             logger.debug(f'Spotify search handled an unusable search type for query: "{query}".')
             return []
 
@@ -308,7 +308,7 @@ class SpotifyTrack:
         """
         decoded: SpotifyDecodePayload = decode_url(query)
 
-        if decoded.type is not SpotifySearchType.album and decoded.type is not SpotifySearchType.playlist:
+        if not decoded or decoded.type is not SpotifySearchType.album and decoded.type is not SpotifySearchType.playlist:
             raise TypeError('Spotify iterator query must be either a valid Spotify album or playlist URL.')
 
         if node is None:
@@ -381,7 +381,7 @@ class SpotifyTrack:
         recos = [SpotifyTrack(t) for t in data['tracks']]
         for reco in recos:
             if reco in player.auto_queue or reco in player.auto_queue.history:
-                pass
+                continue
 
             await player.auto_queue.put_wait(reco)
 
@@ -488,21 +488,20 @@ class SpotifyClient:
             return tracks
 
         elif data['type'] == 'playlist':
-            if iterator:
-                if not data['tracks']['next']:
-                    return [t['track'] for t in data['tracks']['items']]
-
-                url = data['tracks']['next']
-
-                items = [t['track'] for t in data['tracks']['items']]
-                while True:
-                    async with self.session.get(url, headers=self.bearer_headers) as resp:
-                        data = await resp.json()
-
-                        items.extend([t['track'] for t in data['items']])
-                        if not data['next']:
-                            return items
-
-                        url = data['next']
-            else:
+            if not iterator:
                 return [SpotifyTrack(t['track']) for t in data['tracks']['items']]
+            if not data['tracks']['next']:
+                return [t['track'] for t in data['tracks']['items']]
+
+            url = data['tracks']['next']
+
+            items = [t['track'] for t in data['tracks']['items']]
+            while True:
+                async with self.session.get(url, headers=self.bearer_headers) as resp:
+                    data = await resp.json()
+
+                    items.extend([t['track'] for t in data['items']])
+                    if not data['next']:
+                        return items
+
+                    url = data['next']
