@@ -77,6 +77,42 @@ An event listener in a cog.
     Called when a node has been closed and cleaned-up. The second parameter ``disconnected`` is a list of
     :class:`wavelink.Player` that were connected on this Node and are now disconnected.
 
+.. function:: on_wavelink_extra_event(payload: wavelink.ExtraEventPayload)
+
+    Called when an ``Unknown`` and/or ``Unhandled`` event is recevied via Lavalink. This is most likely due to
+    a plugin like SponsorBlock sending custom event data. The payload includes the raw data sent from Lavalink.
+
+    .. note::
+
+        Please see the documentation for your Lavalink plugins to determine what data they send.
+    
+
+    .. versionadded:: 3.1.0
+
+.. function:: on_wavelink_inactive_player(player: wavelink.Player)
+
+    Triggered when the :attr:`~wavelink.Player.inactive_timeout` countdown expires for the specific :class:`~wavelink.Player`.
+
+
+    - See: :attr:`~wavelink.Player.inactive_timeout`
+    - See: :class:`~wavelink.Node` for setting a default on all players.
+
+
+    Examples
+    --------
+
+        **Basic Usage:**
+
+        .. code:: python3
+
+            @commands.Cog.listener()
+            async def on_wavelink_inactive_player(self, player: wavelink.Player) -> None:
+                await player.channel.send(f"The player has been inactive for `{player.inactive_timeout}` seconds. Goodbye!")
+                await player.disconnect()
+
+
+    .. versionadded:: 3.2.0
+
 
 Types
 -----
@@ -188,6 +224,11 @@ Payloads
 .. attributetable:: InfoResponsePayload
 
 .. autoclass:: InfoResponsePayload
+    :members:
+
+.. attributetable:: ExtraEventPayload
+
+.. autoclass:: ExtraEventPayload
     :members:
 
 
